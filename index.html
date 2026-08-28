@@ -238,7 +238,7 @@ function rowsToPois(rows) {
     const get = (n) => { const j = idx(n); return j >= 0 ? (r[j] || '').trim() : ''; };
     return {
       id: (get('id') || get('name') || 'poi-' + i).toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      name: get('name'), category: get('category') || 'Food', area: get('area'),
+      name: get('name'), category: get('your category') || 'Food', area: get('area'),
       blurb: get('blurb'), hours: get('hours'), address: get('address'),
       lat: parseFloat(get('lat')), lng: parseFloat(get('lng')),
     };

@@ -73,7 +73,12 @@ a:hover{color:var(--color-accent-600)}
       <div style="display:flex;flex-direction:column;gap:16px">
         <sc-for list="{{ homePicks }}" as="poi" hint-placeholder-count="3">
           <button class="card elev-sm" style="padding:0;overflow:hidden;border:none;text-align:left;cursor:pointer;font-family:var(--font-body);display:block;width:100%" onClick="{{ poi.open }}">
-            <image-slot id="m-pick-{{ poi.id }}" class="washed" shape="rect" placeholder="{{ poi.name }} photo" style="width:100%;height:170px"></image-slot>
+            <sc-if value="{{ poi.photo }}" hint-placeholder-val="{{ false }}">
+              <img src="{{ poi.photo }}" alt="{{ poi.name }}" loading="lazy" decoding="async" style="width:100%;height:170px;object-fit:cover;display:block" />
+            </sc-if>
+            <sc-if value="{{ !poi.photo }}" hint-placeholder-val="{{ true }}">
+              <image-slot id="m-pick-{{ poi.id }}" class="washed" shape="rect" placeholder="{{ poi.name }} photo" style="width:100%;height:170px"></image-slot>
+            </sc-if>
             <div style="padding:16px;display:flex;flex-direction:column;gap:8px">
               <span class="{{ poi.tagCls }}" style="width:fit-content">{{ poi.category }}</span>
               <div class="card-title" style="font-size:19px">{{ poi.name }}</div>
@@ -120,15 +125,25 @@ a:hover{color:var(--color-accent-600)}
     </div>
     <div style="padding:8px 20px 32px;display:flex;flex-direction:column;gap:16px">
       <sc-for list="{{ filteredPois }}" as="poi" hint-placeholder-count="6">
-        <button class="card elev-sm" style="padding:0;overflow:hidden;border:none;text-align:left;cursor:pointer;font-family:var(--font-body);display:block;width:100%" onClick="{{ poi.open }}">
-          <image-slot id="m-list-{{ poi.id }}" class="washed" shape="rect" placeholder="{{ poi.name }} photo" style="width:100%;height:160px"></image-slot>
-          <div style="padding:16px;display:flex;flex-direction:column;gap:8px">
-            <span class="{{ poi.tagCls }}" style="width:fit-content">{{ poi.category }}</span>
-            <div class="card-title" style="font-size:19px">{{ poi.name }}</div>
-            <p class="card-body" style="margin:0">{{ poi.blurb }}</p>
-            <div class="card-meta">{{ poi.area }} · {{ poi.hours }}</div>
+        <div class="card elev-sm" style="padding:0;overflow:hidden;font-family:var(--font-body)">
+          <div style="cursor:pointer" onClick="{{ poi.open }}">
+            <sc-if value="{{ poi.photo }}" hint-placeholder-val="{{ false }}">
+              <img src="{{ poi.photo }}" alt="{{ poi.name }}" loading="lazy" decoding="async" style="width:100%;height:160px;object-fit:cover;display:block" />
+            </sc-if>
+            <sc-if value="{{ !poi.photo }}" hint-placeholder-val="{{ true }}">
+              <image-slot id="m-list-{{ poi.id }}" class="washed" shape="rect" placeholder="{{ poi.name }} photo" style="width:100%;height:160px"></image-slot>
+            </sc-if>
+            <div style="padding:16px 16px 0;display:flex;flex-direction:column;gap:8px">
+              <span class="{{ poi.tagCls }}" style="width:fit-content">{{ poi.category }}</span>
+              <div class="card-title" style="font-size:19px">{{ poi.name }}</div>
+              <p class="card-body" style="margin:0">{{ poi.blurb }}</p>
+              <div class="card-meta">{{ poi.area }} · {{ poi.hours }}</div>
+            </div>
           </div>
-        </button>
+          <div style="padding:12px 16px 16px">
+            <a href="{{ poi.mapsUrl }}" target="_blank" rel="noopener" onClick="{{ poi.stopClick }}" style="font-size:13px;font-weight:600">Open in Maps →</a>
+          </div>
+        </div>
       </sc-for>
     </div>
   </div>
@@ -148,7 +163,12 @@ a:hover{color:var(--color-accent-600)}
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="18" y1="6" x2="6" y2="18"></line></svg>
         </button>
       </div>
-      <image-slot id="m-sheet-{{ selectedPoi.id }}" class="washed" shape="rounded" radius="16" placeholder="{{ selectedPoi.name }} photo" style="width:100%;height:180px;margin:14px 0"></image-slot>
+      <sc-if value="{{ selectedPoi.photo }}" hint-placeholder-val="{{ false }}">
+        <img src="{{ selectedPoi.photo }}" alt="{{ selectedPoi.name }}" loading="lazy" decoding="async" style="width:100%;height:180px;margin:14px 0;border-radius:16px;object-fit:cover;display:block" />
+      </sc-if>
+      <sc-if value="{{ !selectedPoi.photo }}" hint-placeholder-val="{{ true }}">
+        <image-slot id="m-sheet-{{ selectedPoi.id }}" class="washed" shape="rounded" radius="16" placeholder="{{ selectedPoi.name }} photo" style="width:100%;height:180px;margin:14px 0"></image-slot>
+      </sc-if>
       <p style="font-size:15px;line-height:1.65;margin:0 0 14px">{{ selectedPoi.blurb }}</p>
       <div style="display:flex;flex-direction:column;gap:8px;font-size:14px;color:var(--color-neutral-800);margin-bottom:18px">
         <div style="display:flex;gap:8px"><span style="color:var(--color-neutral-600);min-width:64px">Hours</span><span>{{ selectedPoi.hours }}</span></div>
@@ -174,7 +194,7 @@ a:hover{color:var(--color-accent-600)}
 </div>
 
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:480,&quot;height&quot;:900},&quot;sheetCsvUrl&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;https://docs.google.com/spreadsheets/d/1AwO2QWMOALA19iHOol2CMqR2srWd_1gIDBOQMkF7ylY/export?format=csv&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Data&quot;},&quot;cfAnalyticsToken&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Data&quot;},&quot;mapStyle&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Muted&quot;,&quot;Street&quot;,&quot;Topo&quot;],&quot;default&quot;:&quot;Muted&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Map&quot;},&quot;showStory&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Content&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:480,&quot;height&quot;:900},&quot;sheetCsvUrl&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;https://docs.google.com/spreadsheets/d/15rxj4M55MjTkV6RReOIzQ3f9T22Z_IadhDfwYJXM-Ro/export?format=csv&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Data&quot;},&quot;cfAnalyticsToken&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Data&quot;},&quot;mapStyle&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Muted&quot;,&quot;Street&quot;,&quot;Topo&quot;],&quot;default&quot;:&quot;Muted&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Map&quot;},&quot;showStory&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Content&quot;}}">
 const TAG_CLS = {
   Food: 'tag tag-accent',
   Landmarks: 'tag tag-neutral',
@@ -244,10 +264,16 @@ function rowsToPois(rows) {
   const idx = (n) => head.indexOf(n);
   return rows.slice(1).map((r, i) => {
     const get = (n) => { const j = idx(n); return j >= 0 ? (r[j] || '').trim() : ''; };
+    const rawPhoto = get('photo (filename/url)');
+    // Sheet photo values are usually "photos/<file>", but a few rows are a
+    // bare filename with no folder — normalize so both resolve the same way.
+    const photo = rawPhoto && !/^([a-z]+:)?\//i.test(rawPhoto) && !rawPhoto.includes('/')
+      ? 'photos/' + rawPhoto : rawPhoto;
     return {
       id: (get('id') || get('name') || 'poi-' + i).toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      name: get('name'), category: get('your category') || 'Food', area: get('area'),
+      name: get('name'), category: get('your category') || 'Food', area: get('area') || get('city'),
       blurb: get('blurb'), hours: get('hours'), address: get('address'),
+      photo,
       lat: parseFloat(get('lat')), lng: parseFloat(get('lng')),
     };
   }).filter(p => p.name && !isNaN(p.lat) && !isNaN(p.lng));
@@ -328,8 +354,10 @@ class Component extends DCLogic {
         html: '<div class="al-pin" style="width:' + size + 'px;height:' + size + 'px;background:' + (PIN_COLOR[p.category] || PIN_COLOR.Food) + '"></div>',
         iconSize: [size, size], iconAnchor: [size / 2, size / 2],
       });
+      const mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.name + ' ' + (p.address || '') + ' Austin TX');
       const popupHtml = '<div style="font-weight:700;font-size:14px;color:var(--color-neutral-800)">' + escapeHtml(p.name) + '</div>'
-        + (p.address ? '<div style="margin-top:2px;font-size:12px;color:var(--color-neutral-600)">' + escapeHtml(p.address) + '</div>' : '');
+        + (p.address ? '<div style="margin-top:2px;font-size:12px;color:var(--color-neutral-600)">' + escapeHtml(p.address) + '</div>' : '')
+        + '<a href="' + mapsUrl + '" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;font-size:12px;font-weight:600">Open in Maps →</a>';
       L.marker([p.lat, p.lng], { icon, title: p.name }).bindPopup(popupHtml).addTo(this._layer);
       pts.push([p.lat, p.lng]);
     });
@@ -352,6 +380,8 @@ class Component extends DCLogic {
       ...p,
       tagCls: TAG_CLS[p.category] || 'tag tag-neutral',
       directions: 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(p.name + ' ' + (p.address || '') + ' Austin TX'),
+      mapsUrl: 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.name + ' ' + (p.address || '') + ' Austin TX'),
+      stopClick: (e) => e.stopPropagation(),
       open: () => this.open(p),
     });
     const filtered = this.visible().map(deco);

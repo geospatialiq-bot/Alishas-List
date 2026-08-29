@@ -301,7 +301,11 @@ class Component extends DCLogic {
 
   componentWillUnmount() { window.removeEventListener('popstate', this._onPop); }
 
-  componentDidUpdate() { this.syncMarkers(); }
+  componentDidUpdate(prevProps, prevState) {
+    // Re-fit the map to the visible dots only when the category filter
+    // actually changed — not on every update (e.g. selecting a marker).
+    this.syncMarkers(prevState.category !== this.state.category);
+  }
 
   initAnalytics() {
     const token = this.props.cfAnalyticsToken;
@@ -362,6 +366,7 @@ class Component extends DCLogic {
       pts.push([p.lat, p.lng]);
     });
     if (fit && pts.length > 1) this._map.fitBounds(pts, { padding: [48, 48] });
+    else if (fit && pts.length === 1) this._map.setView(pts[0], 15);
   }
 
   visible() {

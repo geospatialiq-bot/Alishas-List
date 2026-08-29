@@ -21,6 +21,9 @@ a:hover{color:var(--color-accent-600)}
 .leaflet-tile-pane{filter:saturate(.55) contrast(.92) brightness(1.04)}
 .leaflet-control-attribution{font-size:9px;background:rgba(245,234,216,.8)}
 .al-pin{border-radius:50%;border:3px solid var(--color-neutral-100);box-shadow:0 2px 6px rgba(32,30,29,.35);transition:transform .15s ease}
+.leaflet-popup-content-wrapper{background:var(--color-bg);border-radius:14px;box-shadow:0 4px 16px rgba(32,30,29,.25)}
+.leaflet-popup-content{margin:10px 14px;font-family:var(--font-body)}
+.leaflet-popup-tip{background:var(--color-bg)}
 </style>
 </helmet>
 
@@ -213,6 +216,11 @@ const FALLBACK = [
     hours: 'Music starts around 8pm', address: '2008 S Congress Ave', lat: 30.2455, lng: -97.7527 },
 ];
 
+const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
+}
+
 function parseCsv(text) {
   const rows = [];
   let row = [], cell = '', q = false;
@@ -320,7 +328,9 @@ class Component extends DCLogic {
         html: '<div class="al-pin" style="width:' + size + 'px;height:' + size + 'px;background:' + (PIN_COLOR[p.category] || PIN_COLOR.Food) + '"></div>',
         iconSize: [size, size], iconAnchor: [size / 2, size / 2],
       });
-      L.marker([p.lat, p.lng], { icon, title: p.name }).addTo(this._layer);
+      const popupHtml = '<div style="font-weight:700;font-size:14px;color:var(--color-neutral-800)">' + escapeHtml(p.name) + '</div>'
+        + (p.address ? '<div style="margin-top:2px;font-size:12px;color:var(--color-neutral-600)">' + escapeHtml(p.address) + '</div>' : '');
+      L.marker([p.lat, p.lng], { icon, title: p.name }).bindPopup(popupHtml).addTo(this._layer);
       pts.push([p.lat, p.lng]);
     });
     if (fit && pts.length > 1) this._map.fitBounds(pts, { padding: [48, 48] });

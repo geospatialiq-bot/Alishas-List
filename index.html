@@ -11,6 +11,9 @@
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="./image-slot.js"></script>
 <style>
 @keyframes sheetIn{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
@@ -24,6 +27,17 @@ a:hover{color:var(--color-accent-600)}
 .leaflet-popup-content-wrapper{background:var(--color-bg);border-radius:14px;box-shadow:0 4px 16px rgba(32,30,29,.25)}
 .leaflet-popup-content{margin:10px 14px;font-family:var(--font-body)}
 .leaflet-popup-tip{background:var(--color-bg)}
+/* Cluster bubbles, restyled onto the site's accent ramp — the plugin's
+   default green/yellow/orange reads as a third palette next to the pins. */
+.marker-cluster{background:none}
+.marker-cluster div{width:30px;height:30px;margin-left:5px;margin-top:5px;border:2px solid var(--color-neutral-100);border-radius:50%;color:var(--color-neutral-100);font-family:var(--font-body);font-weight:700;font-size:12px;line-height:26px;text-align:center;box-shadow:0 2px 6px rgba(32,30,29,.35)}
+.marker-cluster span{line-height:26px}
+.marker-cluster-small{background-color:rgba(214,127,72,.28)}
+.marker-cluster-small div{background-color:#c67139}
+.marker-cluster-medium{background-color:rgba(178,98,45,.28)}
+.marker-cluster-medium div{background-color:#b2622d}
+.marker-cluster-large{background-color:rgba(100,51,18,.28)}
+.marker-cluster-large div{background-color:#8c491a}
 </style>
 </helmet>
 
@@ -328,13 +342,13 @@ class Component extends DCLogic {
     if (this._map && this._el === el) return;
     this._el = el;
     const start = () => {
-      if (!window.L) return setTimeout(start, 80);
+      if (!window.L || !window.L.markerClusterGroup) return setTimeout(start, 80);
       if (!el.isConnected) return;
       this._map = window.L.map(el, { zoomControl: false, attributionControl: true })
         .setView([30.2672, -97.7431], 12.5);
       window.L.tileLayer(TILES[this.props.mapStyle] || TILES.Muted, { attribution: ATTR, maxZoom: 19 }).addTo(this._map);
       window.L.control.zoom({ position: 'bottomright' }).addTo(this._map);
-      this._layer = window.L.layerGroup().addTo(this._map);
+      this._layer = window.L.markerClusterGroup({ maxClusterRadius: 50, spiderfyOnMaxZoom: true, showCoverageOnHover: false }).addTo(this._map);
       this.syncMarkers(true);
       setTimeout(() => this._map && this._map.invalidateSize(), 120);
     };
@@ -346,6 +360,7 @@ class Component extends DCLogic {
     const L = window.L;
     this._layer.clearLayers();
     const pts = [];
+    const markers = [];
     this.visible().forEach((p) => {
       const sel = p.id === this.state.selectedId;
       const size = sel ? 24 : 16;
@@ -364,9 +379,12 @@ class Component extends DCLogic {
         + '<div style="font-weight:700;font-size:14px;color:var(--color-neutral-800)">' + escapeHtml(p.name) + '</div>'
         + (p.address ? '<div style="margin-top:2px;font-size:12px;color:var(--color-neutral-600)">' + escapeHtml(p.address) + '</div>' : '')
         + '<a href="' + mapsUrl + '" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;font-size:12px;font-weight:600">Open in Maps →</a>';
-      L.marker([p.lat, p.lng], { icon, title: p.name }).bindPopup(popupHtml, { maxWidth: 220 }).addTo(this._layer);
+      markers.push(L.marker([p.lat, p.lng], { icon, title: p.name }).bindPopup(popupHtml, { maxWidth: 220 }));
       pts.push([p.lat, p.lng]);
     });
+    // Bulk-add: markercluster rebuilds its index once for addLayers, but once
+    // per marker for addTo — the difference is seconds at ~680 places.
+    this._layer.addLayers(markers);
     if (fit && pts.length > 1) this._map.fitBounds(pts, { padding: [48, 48] });
   }
 

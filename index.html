@@ -214,6 +214,12 @@ a:hover{color:var(--color-accent-600)}
 
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:480,&quot;height&quot;:900},&quot;sheetCsvUrl&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;https://docs.google.com/spreadsheets/d/15rxj4M55MjTkV6RReOIzQ3f9T22Z_IadhDfwYJXM-Ro/export?format=csv&amp;gid=653166301&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Data&quot;},&quot;cfAnalyticsToken&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Data&quot;},&quot;mapStyle&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Muted&quot;,&quot;Street&quot;,&quot;Topo&quot;],&quot;default&quot;:&quot;Muted&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Map&quot;},&quot;showStory&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Content&quot;}}">
+// 'Your Category' is a controlled vocabulary in the sheet, not free text:
+// audited against the live CSV, all 679 rows use exactly these four values
+// (Food 496, Landmarks 85, Live Music 64, Parks 34). The sheet's much finer
+// 'Source Category' column (~85 values: BBQ, Speakeasies, Dive Bars, ...) is
+// deliberately not what drives color — at that cardinality a color key stops
+// being readable. So these stay a curated four, not a generated palette.
 const TAG_CLS = {
   Food: 'tag tag-accent',
   Landmarks: 'tag tag-neutral',
@@ -226,6 +232,28 @@ const PIN_COLOR = {
   'Live Music': '#5f6d47',
   Parks: '#9aab7c',
 };
+// A fifth category added to the sheet later used to inherit Food's orange,
+// which does not read as "unrecognized" — it reads as Food. Hand anything
+// outside the vocabulary its own stable color instead: earthy hues chosen to
+// stay separable from the four above at 16-24px on the muted Esri canvas.
+const EXTRA_PIN_COLORS = ['#3f6f7d', '#8c5a6d', '#a8843f', '#6e6a9b', '#4a7a63'];
+const UNCATEGORIZED_PIN = '#82796a';
+const seenUnknownCats = new Set();
+function pinColor(category) {
+  const c = (category || '').trim();
+  if (PIN_COLOR[c]) return PIN_COLOR[c];
+  if (!c) return UNCATEGORIZED_PIN;
+  if (!seenUnknownCats.has(c)) {
+    seenUnknownCats.add(c);
+    console.warn('[alishas-list] category outside the curated palette: ' + c);
+  }
+  let h = 0;
+  for (let i = 0; i < c.length; i++) h = (h * 31 + c.charCodeAt(i)) >>> 0;
+  return EXTRA_PIN_COLORS[h % EXTRA_PIN_COLORS.length];
+}
+function tagCls(category) {
+  return TAG_CLS[(category || '').trim()] || 'tag tag-neutral';
+}
 // The List screen renders full-photo cards ~250px tall; rendering all ~680
 // at once is several thousand DOM nodes and as many image requests.
 const LIST_PAGE = 30;
@@ -293,7 +321,7 @@ function rowsToPois(rows) {
       ? 'photos/' + rawPhoto : rawPhoto;
     return {
       id: (get('id') || get('name') || 'poi-' + i).toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      name: get('name'), category: get('your category') || 'Food', area: get('area') || get('city'),
+      name: get('name'), category: get('your category') || 'Uncategorized', area: get('area') || get('city'),
       blurb: get('blurb'), hours: get('hours'), address: get('address'),
       photo,
       lat: parseFloat(get('lat')), lng: parseFloat(get('lng')),
@@ -374,7 +402,7 @@ class Component extends DCLogic {
       const size = sel ? 24 : 16;
       const icon = L.divIcon({
         className: '',
-        html: '<div class="al-pin" style="width:' + size + 'px;height:' + size + 'px;background:' + (PIN_COLOR[p.category] || PIN_COLOR.Food) + '"></div>',
+        html: '<div class="al-pin" style="width:' + size + 'px;height:' + size + 'px;background:' + pinColor(p.category) + '"></div>',
         iconSize: [size, size], iconAnchor: [size / 2, size / 2],
       });
       const mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.name + ' ' + (p.address || '') + ' Austin TX');
@@ -410,7 +438,7 @@ class Component extends DCLogic {
     const cats = ['All'].concat(Array.from(new Set(pois.map(p => p.category))).filter(Boolean));
     const deco = (p) => ({
       ...p,
-      tagCls: TAG_CLS[p.category] || 'tag tag-neutral',
+      tagCls: tagCls(p.category),
       directions: 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(p.name + ' ' + (p.address || '') + ' Austin TX'),
       mapsUrl: 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.name + ' ' + (p.address || '') + ' Austin TX'),
       stopClick: (e) => e.stopPropagation(),

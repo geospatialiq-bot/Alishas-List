@@ -250,12 +250,13 @@ const PIN_COLOR = {
 // outside the vocabulary its own stable color instead: earthy hues chosen to
 // stay separable from the four above at 16-24px on the muted Esri canvas.
 const EXTRA_PIN_COLORS = ['#3f6f7d', '#8c5a6d', '#a8843f', '#6e6a9b', '#4a7a63'];
+const UNCATEGORIZED = 'Uncategorized';
 const UNCATEGORIZED_PIN = '#82796a';
 const seenUnknownCats = new Set();
 function pinColor(category) {
   const c = (category || '').trim();
   if (PIN_COLOR[c]) return PIN_COLOR[c];
-  if (!c) return UNCATEGORIZED_PIN;
+  if (!c || c === UNCATEGORIZED) return UNCATEGORIZED_PIN;
   if (!seenUnknownCats.has(c)) {
     seenUnknownCats.add(c);
     console.warn('[alishas-list] category outside the curated palette: ' + c);
@@ -338,9 +339,12 @@ function rowsToPois(rows) {
       ? 'photos/' + rawPhoto : rawPhoto;
     return {
       id: (get('id') || get('name') || 'poi-' + i).toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      name: get('name'), category: get('your category') || 'Uncategorized', area: get('area') || get('city'),
+      name: get('name'), category: get('your category') || UNCATEGORIZED, area: get('area') || get('city'),
       blurb: get('blurb'), hours: get('hours'), address: get('address'),
       photo,
+      // Optional 'Featured' column — a checkbox in Sheets exports as TRUE, but
+      // accept the things a person types in a column they are checking by hand.
+      featured: /^(true|yes|y|x|1)$/i.test(get('featured')),
       lat: parseFloat(get('lat')), lng: parseFloat(get('lng')),
     };
   }).filter(p => p.name && !isNaN(p.lat) && !isNaN(p.lng));
@@ -508,6 +512,15 @@ class Component extends DCLogic {
     const vis = this.visible();
     const filtered = vis.slice(0, listPageSize).map(deco);
     const selRaw = pois.find(p => p.id === selectedId);
+    // "Three to start with" is the site's pitch — personally recommended
+    // spots. Whatever three rows happen to sort first is not that, so the
+    // Featured column in the sheet drives it. Short of three flagged rows the
+    // remainder is topped up from the top of the list rather than thrown away:
+    // one curated pick beats none while the column is still being filled in.
+    const featured = pois.filter(p => p.featured);
+    const homePicks = featured.length >= 3
+      ? featured.slice(0, 3)
+      : featured.concat(pois.filter(p => !p.featured)).slice(0, 3);
     const tabDefs = [
       { key: 'home', name: 'Home' },
       { key: 'map', name: 'Map' },
@@ -529,7 +542,7 @@ class Component extends DCLogic {
       remainingCount: Math.max(0, vis.length - listPageSize),
       nextBatchCount: Math.min(LIST_PAGE, Math.max(0, vis.length - listPageSize)),
       loadMore: () => this.setState({ listPageSize: listPageSize + LIST_PAGE }),
-      homePicks: pois.slice(0, 3).map(deco),
+      homePicks: homePicks.map(deco),
       catChips: cats.map(c => ({
         name: c,
         cls: c === category ? 'tag tag-accent' : 'tag tag-outline',

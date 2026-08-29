@@ -17,6 +17,8 @@
 <script src="./image-slot.js"></script>
 <style>
 @keyframes sheetIn{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes pulseFade{0%,100%{opacity:.4}50%{opacity:.9}}
+@keyframes toastIn{from{transform:translateY(12px);opacity:0}to{transform:translateY(0);opacity:1}}
 body{margin:0;background:var(--color-neutral-300)}
 a{color:var(--color-accent-700);text-decoration:none}
 a:hover{color:var(--color-accent-600)}
@@ -51,7 +53,7 @@ a:hover{color:var(--color-accent-600)}
         <span style="width:9px;height:9px;border-radius:50%;background:var(--color-accent);display:inline-block"></span>
         Alisha's<span style="color:var(--color-accent-700)"> List</span>
       </div>
-      <span style="font-size:12px;color:var(--color-neutral-700)">{{ poiCount }} spots</span>
+      <span style="{{ countStyle }}">{{ countLabel }}</span>
     </div>
 
     <div style="position:relative;height:420px">
@@ -200,6 +202,17 @@ a:hover{color:var(--color-accent-600)}
     </div>
   </sc-if>
 
+  <sc-if value="{{ showLoadError }}" hint-placeholder-val="{{ false }}">
+    <div role="status" style="position:fixed;bottom:78px;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:31;padding:0 12px 10px;pointer-events:none">
+      <div style="display:flex;align-items:center;gap:10px;background:var(--color-neutral-800);color:var(--color-neutral-100);border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.4;box-shadow:var(--shadow-md);animation:toastIn .25s ease-out;pointer-events:auto">
+        <span style="flex:1">Showing a sample list — couldn't load the full list right now.</span>
+        <button class="btn btn-icon" style="flex:none;width:26px;height:26px;border:none;background:none;color:inherit;cursor:pointer" onClick="{{ dismissLoadError }}" aria-label="Dismiss">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="18" y1="6" x2="6" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+  </sc-if>
+
   <div style="position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--color-bg);border-top:1px solid var(--color-divider);display:grid;grid-template-columns:repeat(3,1fr);z-index:30">
     <sc-for list="{{ tabs }}" as="tab" hint-placeholder-count="3">
       <button style="{{ tab.style }}" onClick="{{ tab.onClick }}">
@@ -330,7 +343,7 @@ function rowsToPois(rows) {
 }
 
 class Component extends DCLogic {
-  state = { screen: 'home', category: 'All', selectedId: null, pois: FALLBACK, loading: false, listPageSize: LIST_PAGE };
+  state = { screen: 'home', category: 'All', selectedId: null, pois: FALLBACK, loading: false, loadError: false, errorDismissed: false, listPageSize: LIST_PAGE };
 
   componentDidMount() {
     this.initAnalytics();
@@ -342,11 +355,21 @@ class Component extends DCLogic {
     const url = this.props.sheetCsvUrl;
     if (!url) return;
     this.setState({ loading: true });
-    fetch(url).then(r => r.text()).then(t => {
+    // A wrongly-shared sheet answers 401 with an HTML body, which .text()
+    // parses to zero rows without ever rejecting — that failure mode once
+    // showed up only as "a few points are missing". Treat a bad status and
+    // an empty parse as load errors so the UI can say so.
+    fetch(url).then(r => {
+      if (!r.ok) throw new Error('sheet responded ' + r.status);
+      return r.text();
+    }).then(t => {
       const pois = rowsToPois(parseCsv(t));
-      if (pois.length) this.setState({ pois, loading: false });
-      else this.setState({ loading: false });
-    }).catch(() => this.setState({ loading: false }));
+      if (!pois.length) throw new Error('sheet parsed to zero places');
+      this.setState({ pois, loading: false, loadError: false });
+    }).catch((e) => {
+      console.warn('[alishas-list] falling back to the built-in sample list:', e);
+      this.setState({ loading: false, loadError: true });
+    });
   }
 
   componentWillUnmount() { window.removeEventListener('popstate', this._onPop); }
@@ -434,7 +457,7 @@ class Component extends DCLogic {
   }
 
   renderVals() {
-    const { screen, category, selectedId, pois, listPageSize } = this.state;
+    const { screen, category, selectedId, pois, listPageSize, loading, loadError, errorDismissed } = this.state;
     const cats = ['All'].concat(Array.from(new Set(pois.map(p => p.category))).filter(Boolean));
     const deco = (p) => ({
       ...p,
@@ -460,6 +483,11 @@ class Component extends DCLogic {
       isHome: screen === 'home', isMap: screen === 'map', isList: screen === 'list',
       showStory: this.props.showStory !== false,
       poiCount: pois.length,
+      loading, loadError,
+      countLabel: loading ? 'Loading…' : pois.length + ' spots',
+      countStyle: 'font-size:12px;color:var(--color-neutral-700)' + (loading ? ';animation:pulseFade 1.2s ease-in-out infinite' : ''),
+      showLoadError: loadError && !errorDismissed,
+      dismissLoadError: () => this.setState({ errorDismissed: true }),
       visibleCount: vis.length,
       filteredPois: filtered,
       hasMore: vis.length > listPageSize,

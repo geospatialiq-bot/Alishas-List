@@ -90,7 +90,7 @@ a:hover{color:var(--color-accent-600)}
         <sc-for list="{{ homePicks }}" as="poi" hint-placeholder-count="3">
           <button class="card elev-sm" style="padding:0;overflow:hidden;border:none;text-align:left;cursor:pointer;font-family:var(--font-body);display:block;width:100%" onClick="{{ poi.open }}">
             <sc-if value="{{ poi.photo }}" hint-placeholder-val="{{ false }}">
-              <img src="{{ poi.photo }}" alt="{{ poi.name }}" loading="lazy" decoding="async" style="width:100%;height:170px;object-fit:cover;display:block" />
+              <img src="{{ poi.photo }}" alt="{{ poi.name }}" loading="lazy" decoding="async" onError="{{ poi.hideBrokenImg }}" style="width:100%;height:170px;object-fit:cover;display:block" />
             </sc-if>
             <sc-if value="{{ !poi.photo }}" hint-placeholder-val="{{ true }}">
               <image-slot id="m-pick-{{ poi.id }}" class="washed" shape="rect" placeholder="{{ poi.name }} photo" style="width:100%;height:170px"></image-slot>
@@ -98,7 +98,9 @@ a:hover{color:var(--color-accent-600)}
             <div style="padding:16px;display:flex;flex-direction:column;gap:8px">
               <span class="{{ poi.tagCls }}" style="width:fit-content">{{ poi.category }}</span>
               <div class="card-title" style="font-size:19px">{{ poi.name }}</div>
-              <p class="card-body" style="margin:0">{{ poi.blurb }}</p>
+              <sc-if value="{{ poi.blurb }}" hint-placeholder-val="{{ true }}">
+                <p class="card-body" style="margin:0">{{ poi.blurb }}</p>
+              </sc-if>
               <div class="card-meta">{{ poi.area }}</div>
             </div>
           </button>
@@ -144,7 +146,7 @@ a:hover{color:var(--color-accent-600)}
         <div class="card elev-sm" style="padding:0;overflow:hidden;font-family:var(--font-body)">
           <button style="display:block;width:100%;padding:0;border:none;background:none;text-align:left;cursor:pointer;font-family:var(--font-body)" onClick="{{ poi.open }}">
             <sc-if value="{{ poi.photo }}" hint-placeholder-val="{{ false }}">
-              <img src="{{ poi.photo }}" alt="{{ poi.name }}" loading="lazy" decoding="async" style="width:100%;height:160px;object-fit:cover;display:block" />
+              <img src="{{ poi.photo }}" alt="{{ poi.name }}" loading="lazy" decoding="async" onError="{{ poi.hideBrokenImg }}" style="width:100%;height:160px;object-fit:cover;display:block" />
             </sc-if>
             <sc-if value="{{ !poi.photo }}" hint-placeholder-val="{{ true }}">
               <image-slot id="m-list-{{ poi.id }}" class="washed" shape="rect" placeholder="{{ poi.name }} photo" style="width:100%;height:160px"></image-slot>
@@ -152,8 +154,10 @@ a:hover{color:var(--color-accent-600)}
             <div style="padding:16px 16px 0;display:flex;flex-direction:column;gap:8px">
               <span class="{{ poi.tagCls }}" style="width:fit-content">{{ poi.category }}</span>
               <div class="card-title" style="font-size:19px">{{ poi.name }}</div>
-              <p class="card-body" style="margin:0">{{ poi.blurb }}</p>
-              <div class="card-meta">{{ poi.area }} · {{ poi.hours }}</div>
+              <sc-if value="{{ poi.blurb }}" hint-placeholder-val="{{ true }}">
+                <p class="card-body" style="margin:0">{{ poi.blurb }}</p>
+              </sc-if>
+              <div class="card-meta">{{ poi.meta }}</div>
             </div>
           </button>
           <div style="padding:12px 16px 16px">
@@ -185,16 +189,24 @@ a:hover{color:var(--color-accent-600)}
         </button>
       </div>
       <sc-if value="{{ selectedPoi.photo }}" hint-placeholder-val="{{ false }}">
-        <img src="{{ selectedPoi.photo }}" alt="{{ selectedPoi.name }}" loading="lazy" decoding="async" style="width:100%;height:180px;margin:14px 0;border-radius:16px;object-fit:cover;display:block" />
+        <img src="{{ selectedPoi.photo }}" alt="{{ selectedPoi.name }}" loading="lazy" decoding="async" onError="{{ selectedPoi.hideBrokenImg }}" style="width:100%;height:180px;margin:14px 0;border-radius:16px;object-fit:cover;display:block" />
       </sc-if>
       <sc-if value="{{ !selectedPoi.photo }}" hint-placeholder-val="{{ true }}">
         <image-slot id="m-sheet-{{ selectedPoi.id }}" class="washed" shape="rounded" radius="16" placeholder="{{ selectedPoi.name }} photo" style="width:100%;height:180px;margin:14px 0"></image-slot>
       </sc-if>
-      <p style="font-size:15px;line-height:1.65;margin:0 0 14px">{{ selectedPoi.blurb }}</p>
+      <sc-if value="{{ selectedPoi.blurb }}" hint-placeholder-val="{{ true }}">
+        <p style="font-size:15px;line-height:1.65;margin:0 0 14px">{{ selectedPoi.blurb }}</p>
+      </sc-if>
+      <sc-if value="{{ selectedPoi.hasFacts }}" hint-placeholder-val="{{ true }}">
       <div style="display:flex;flex-direction:column;gap:8px;font-size:14px;color:var(--color-neutral-800);margin-bottom:18px">
-        <div style="display:flex;gap:8px"><span style="color:var(--color-neutral-600);min-width:64px">Hours</span><span>{{ selectedPoi.hours }}</span></div>
-        <div style="display:flex;gap:8px"><span style="color:var(--color-neutral-600);min-width:64px">Address</span><span>{{ selectedPoi.address }}</span></div>
+        <sc-if value="{{ selectedPoi.hours }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;gap:8px"><span style="color:var(--color-neutral-600);min-width:64px">Hours</span><span>{{ selectedPoi.hours }}</span></div>
+        </sc-if>
+        <sc-if value="{{ selectedPoi.address }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;gap:8px"><span style="color:var(--color-neutral-600);min-width:64px">Address</span><span>{{ selectedPoi.address }}</span></div>
+        </sc-if>
       </div>
+      </sc-if>
       <div style="display:flex;gap:10px">
         <a class="btn btn-primary" style="flex:1;justify-content:center;padding:14px" href="{{ selectedPoi.directions }}" target="_blank" rel="noopener">Directions</a>
         <button class="btn btn-secondary" style="flex:none;padding:14px 18px" onClick="{{ showOnMap }}">On map</button>
@@ -506,7 +518,7 @@ class Component extends DCLogic {
       // .leaflet-popup-content's own margin (10px 14px), then let the
       // text below sit in a normal padded block.
       const popupHtml = (p.photo
-          ? '<img src="' + escapeHtml(p.photo) + '" alt="" loading="lazy" decoding="async" style="display:block;width:calc(100% + 28px);height:120px;margin:-10px -14px 8px;object-fit:cover;border-radius:14px 14px 0 0" />'
+          ? '<img src="' + escapeHtml(p.photo) + '" alt="" loading="lazy" decoding="async" style="display:block;width:calc(100% + 28px);height:120px;margin:-10px -14px 8px;object-fit:cover;border-radius:14px 14px 0 0" onerror="this.remove()" />'
           : '')
         + '<div style="font-weight:700;font-size:14px;color:var(--color-neutral-800)">' + escapeHtml(p.name) + '</div>'
         + (p.address ? '<div style="margin-top:2px;font-size:12px;color:var(--color-neutral-600)">' + escapeHtml(p.address) + '</div>' : '')
@@ -556,7 +568,12 @@ class Component extends DCLogic {
       tagCls: tagCls(p.category),
       directions: 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(p.name + ' ' + (p.address || '') + ' Austin TX'),
       mapsUrl: 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.name + ' ' + (p.address || '') + ' Austin TX'),
+      // Only one place in the sheet carries hours or an address today, so
+      // these are joined and gated rather than rendered with empty holes.
+      meta: [p.area, p.hours].filter(Boolean).join(' · '),
+      hasFacts: !!(p.hours || p.address),
       stopClick: (e) => e.stopPropagation(),
+      hideBrokenImg: (e) => { e.currentTarget.style.display = 'none'; },
       open: () => this.open(p),
     });
     // Decorate only the page being rendered — deco() builds two encoded

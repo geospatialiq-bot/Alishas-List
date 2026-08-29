@@ -270,6 +270,10 @@ function tagCls(category) {
 // The List screen renders full-photo cards ~250px tall; rendering all ~680
 // at once is several thousand DOM nodes and as many image requests.
 const LIST_PAGE = 30;
+// Clustering stops at this zoom, and "On map" jumps to it: at street level
+// a bubble is worse than a few overlapping pins, and an unclustered pin is
+// the one case where its popup can be opened without fighting the plugin.
+const FOCUS_ZOOM = 17;
 const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
 const TILES = {
   Muted: ESRI + 'Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
@@ -343,7 +347,7 @@ function rowsToPois(rows) {
 }
 
 class Component extends DCLogic {
-  state = { screen: 'home', category: 'All', selectedId: null, pois: FALLBACK, loading: false, loadError: false, errorDismissed: false, listPageSize: LIST_PAGE };
+  state = { screen: 'home', category: 'All', selectedId: null, pois: FALLBACK, loading: false, loadError: false, errorDismissed: false, listPageSize: LIST_PAGE, focusId: null };
 
   componentDidMount() {
     this.initAnalytics();
@@ -407,7 +411,7 @@ class Component extends DCLogic {
         .setView([30.2672, -97.7431], 12.5);
       window.L.tileLayer(TILES[this.props.mapStyle] || TILES.Muted, { attribution: ATTR, maxZoom: 19 }).addTo(this._map);
       window.L.control.zoom({ position: 'bottomright' }).addTo(this._map);
-      this._layer = window.L.markerClusterGroup({ maxClusterRadius: 50, spiderfyOnMaxZoom: true, showCoverageOnHover: false }).addTo(this._map);
+      this._layer = window.L.markerClusterGroup({ maxClusterRadius: 50, spiderfyOnMaxZoom: true, showCoverageOnHover: false, disableClusteringAtZoom: FOCUS_ZOOM }).addTo(this._map);
       this.syncMarkers(true);
       setTimeout(() => this._map && this._map.invalidateSize(), 120);
     };
@@ -417,11 +421,23 @@ class Component extends DCLogic {
   syncMarkers(fit) {
     if (!this._map || !this._layer) return;
     const L = window.L;
+    // focusId survives the sheet closing, so a place reached via "On map"
+    // stays the enlarged pin once the sheet is out of the way.
+    const emphasisId = this.state.focusId || this.state.selectedId;
+    // componentDidUpdate calls this on every render — opening a sheet, loading
+    // another page of cards — and rebuilding ~680 markers each time is both
+    // wasteful and unsafe: clearLayers() during a cluster animation leaves the
+    // plugin holding a layer that no longer exists. Only rebuild when the
+    // markers would actually differ.
+    const sig = this.state.category + ' ' + this.state.pois.length + ' ' + (emphasisId || '');
+    if (!fit && !this._centerOnId && sig === this._markerSig) return;
+    this._markerSig = sig;
     this._layer.clearLayers();
     const pts = [];
     const markers = [];
+    let focusMarker = null;
     this.visible().forEach((p) => {
-      const sel = p.id === this.state.selectedId;
+      const sel = p.id === emphasisId;
       const size = sel ? 24 : 16;
       const icon = L.divIcon({
         className: '',
@@ -438,12 +454,31 @@ class Component extends DCLogic {
         + '<div style="font-weight:700;font-size:14px;color:var(--color-neutral-800)">' + escapeHtml(p.name) + '</div>'
         + (p.address ? '<div style="margin-top:2px;font-size:12px;color:var(--color-neutral-600)">' + escapeHtml(p.address) + '</div>' : '')
         + '<a href="' + mapsUrl + '" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;font-size:12px;font-weight:600">Open in Maps →</a>';
-      markers.push(L.marker([p.lat, p.lng], { icon, title: p.name }).bindPopup(popupHtml, { maxWidth: 220 }));
+      const marker = L.marker([p.lat, p.lng], { icon, title: p.name }).bindPopup(popupHtml, { maxWidth: 220 });
+      if (p.id === this._centerOnId) focusMarker = marker;
+      markers.push(marker);
       pts.push([p.lat, p.lng]);
     });
     // Bulk-add: markercluster rebuilds its index once for addLayers, but once
     // per marker for addTo — the difference is seconds at ~680 places.
     this._layer.addLayers(markers);
+    if (this._centerOnId) {
+      this._centerOnId = null;
+      if (focusMarker) {
+        // Not zoomToShowLayer: it hangs callbacks off the cluster animation
+        // and throws when syncMarkers rebuilds the group underneath it. At
+        // FOCUS_ZOOM clustering is off, so the pin is simply there.
+        const showPopup = () => { if (focusMarker._icon) focusMarker.openPopup(); };
+        // Registered before setView, which fires moveend synchronously when
+        // the jump is large enough that Leaflet skips the animation.
+        this._map.once('moveend', showPopup);
+        this._map.setView(focusMarker.getLatLng(), FOCUS_ZOOM);
+        // ...and once more after the icons have had a frame to attach, for
+        // the case where moveend beat the marker into the DOM.
+        setTimeout(showPopup, 400);
+      }
+      return;
+    }
     if (fit && pts.length > 1) this._map.fitBounds(pts, { padding: [48, 48] });
   }
 
@@ -453,7 +488,7 @@ class Component extends DCLogic {
   }
 
   open(p) {
-    this.setState({ selectedId: p.id });
+    this.setState({ selectedId: p.id, focusId: null });
   }
 
   renderVals() {
@@ -512,7 +547,23 @@ class Component extends DCLogic {
       selectedPoi: selRaw ? deco(selRaw) : null,
       sheetOpen: !!selRaw,
       closeSheet: () => this.setState({ selectedId: null }),
-      showOnMap: () => { this.setState({ selectedId: null }); this.goTo('map'); },
+      showOnMap: () => {
+        if (!selRaw) return;
+        // Close the sheet but remember the place: the sheet is fixed over the
+        // whole viewport, so keeping it open would hide the map it just
+        // navigated to.
+        const patch = { selectedId: null, focusId: selRaw.id };
+        // A filter that excludes this place would land the user on a map
+        // without it. Widening back to All is the less confusing of the two
+        // options — the alternative is a jump that visibly does nothing.
+        if (category !== 'All' && selRaw.category !== category) {
+          patch.category = 'All';
+          patch.listPageSize = LIST_PAGE;
+        }
+        this._centerOnId = selRaw.id;
+        this.setState(patch);
+        this.goTo('map');
+      },
       goMap: () => this.goTo('map'),
       goList: () => this.goTo('list'),
     };

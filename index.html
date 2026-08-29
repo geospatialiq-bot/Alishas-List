@@ -160,6 +160,11 @@ a:hover{color:var(--color-accent-600)}
         </div>
       </sc-for>
     </div>
+    <sc-if value="{{ hasMore }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:0 20px 32px">
+      <button class="btn btn-secondary btn-block" style="justify-content:center;padding:14px" onClick="{{ loadMore }}">Load {{ nextBatchCount }} more · {{ remainingCount }} left</button>
+    </div>
+    </sc-if>
   </div>
   </sc-if>
 
@@ -221,6 +226,9 @@ const PIN_COLOR = {
   'Live Music': '#5f6d47',
   Parks: '#9aab7c',
 };
+// The List screen renders full-photo cards ~250px tall; rendering all ~680
+// at once is several thousand DOM nodes and as many image requests.
+const LIST_PAGE = 30;
 const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
 const TILES = {
   Muted: ESRI + 'Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
@@ -294,7 +302,7 @@ function rowsToPois(rows) {
 }
 
 class Component extends DCLogic {
-  state = { screen: 'home', category: 'All', selectedId: null, pois: FALLBACK, loading: false };
+  state = { screen: 'home', category: 'All', selectedId: null, pois: FALLBACK, loading: false, listPageSize: LIST_PAGE };
 
   componentDidMount() {
     this.initAnalytics();
@@ -398,7 +406,7 @@ class Component extends DCLogic {
   }
 
   renderVals() {
-    const { screen, category, selectedId, pois } = this.state;
+    const { screen, category, selectedId, pois, listPageSize } = this.state;
     const cats = ['All'].concat(Array.from(new Set(pois.map(p => p.category))).filter(Boolean));
     const deco = (p) => ({
       ...p,
@@ -408,7 +416,11 @@ class Component extends DCLogic {
       stopClick: (e) => e.stopPropagation(),
       open: () => this.open(p),
     });
-    const filtered = this.visible().map(deco);
+    // Decorate only the page being rendered — deco() builds two encoded
+    // Maps URLs and three closures per place, and that is wasted work for
+    // the ~650 rows the List screen is not showing yet.
+    const vis = this.visible();
+    const filtered = vis.slice(0, listPageSize).map(deco);
     const selRaw = pois.find(p => p.id === selectedId);
     const tabDefs = [
       { key: 'home', name: 'Home' },
@@ -420,13 +432,19 @@ class Component extends DCLogic {
       isHome: screen === 'home', isMap: screen === 'map', isList: screen === 'list',
       showStory: this.props.showStory !== false,
       poiCount: pois.length,
-      visibleCount: filtered.length,
+      visibleCount: vis.length,
       filteredPois: filtered,
+      hasMore: vis.length > listPageSize,
+      remainingCount: Math.max(0, vis.length - listPageSize),
+      nextBatchCount: Math.min(LIST_PAGE, Math.max(0, vis.length - listPageSize)),
+      loadMore: () => this.setState({ listPageSize: listPageSize + LIST_PAGE }),
       homePicks: pois.slice(0, 3).map(deco),
       catChips: cats.map(c => ({
         name: c,
         cls: c === category ? 'tag tag-accent' : 'tag tag-outline',
-        onClick: () => this.setState({ category: c }),
+        // Reset the page size too, or switching All -> Parks keeps a stale
+        // page size and dumps the whole (smaller) category at once.
+        onClick: () => this.setState({ category: c, listPageSize: LIST_PAGE }),
       })),
       tabs: tabDefs.map(t => ({
         name: t.name,
